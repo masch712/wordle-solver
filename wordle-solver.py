@@ -1,8 +1,7 @@
 from dataclasses import dataclass
+from typing import List, Dict, Iterable, Callable
 
 from english_words import english_words_lower_set
-from typing import NamedTuple, List, Dict, Iterable, Callable
-import re
 
 BLACK = 'black'
 
@@ -28,7 +27,7 @@ def get_common_letters(words):
     return letter_counts
 
 
-def sort_words_by_common_letters(words=[], letter_counts={}):
+def get_letter_commonality_score_by_word(words: List[str], letter_counts: Dict[str, int]):
     # Score each word by summing the letter_counts for each letter in the word
     score_by_word = {}
     for word in words:
@@ -39,7 +38,11 @@ def sort_words_by_common_letters(words=[], letter_counts={}):
             if letter not in seen_letters:
                 score_by_word[word] += letter_counts[letter]
                 seen_letters[letter] = True
+    return score_by_word
 
+
+def sort_words_by_common_letters(words: List[str], letter_counts: Dict[str, int]):
+    score_by_word = get_letter_commonality_score_by_word(words, letter_counts)
     words.sort(reverse=True, key=lambda x: (score_by_word[x], x))
 
 
@@ -184,22 +187,18 @@ def evaluate_strategy(answers: Iterable[str], strategy_builder: Callable[[], Str
 
 
 # TODO: SQL table with 5 columns, one for each position of word
+def main():
+    words = get_words()
+    answers = get_words()
+    common_letters = get_common_letters(words)
+    common_words = get_letter_commonality_score_by_word(words, common_letters)
+    sort_words_by_common_letters(words, common_letters)
 
-words = get_words()
-answers = get_words()
-sort_words_by_common_letters(words, get_common_letters(words))
-
-
-commonlettersstrategy_results = evaluate_strategy(
-    answers, lambda: CommonLettersStrategy(first_guess='arose'))
-commonlettersstrategy_losses = list(map(lambda x: x.answer, filter(lambda x: not x.is_win, commonlettersstrategy_results)))
-commonlettersstrategy_losses.sort()
-print(commonlettersstrategy_losses)
-print(len(commonlettersstrategy_losses))
-
-commonlettersstrategy_abase_results = evaluate_strategy(
-    answers, lambda: CommonLettersStrategy(first_guess='arise'))
-commonlettersstrategy_abase_losses = list(map(lambda x: x.answer, filter(lambda x: not x.is_win, commonlettersstrategy_abase_results)))
-commonlettersstrategy_abase_losses.sort()
-print(commonlettersstrategy_abase_losses)
-print(len(commonlettersstrategy_abase_losses))
+    # Try some of the words with the most common letters to see which is the best first_word to play
+    for first_word in filter(lambda x: common_words[x] > 5000, common_words):
+        commonlettersstrategy_results = evaluate_strategy(
+            answers, lambda: CommonLettersStrategy(first_guess=first_word))
+        commonlettersstrategy_losses = list(
+            map(lambda x: x.answer, filter(lambda x: not x.is_win, commonlettersstrategy_results)))
+        commonlettersstrategy_losses.sort()
+        print(first_word + ': ' + str(len(commonlettersstrategy_losses)))
